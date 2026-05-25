@@ -11,12 +11,12 @@ function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-  const token = localStorage.getItem("token");
+  const user = localStorage.getItem("userInfo");
 
-  if (token) {
+  if (user) {
     navigate("/dashboard");
   }
-}, []);
+}, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -36,7 +36,7 @@ function Login() {
 
       console.log(res.data);
 
-      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userInfo", JSON.stringify(res.data));
 
       navigate("/dashboard");
     } catch (error) {

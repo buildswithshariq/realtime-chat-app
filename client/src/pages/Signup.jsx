@@ -19,12 +19,12 @@ function Signup() {
   const navigate = useNavigate();
 
   useEffect(() => {
-  const token = localStorage.getItem("token");
+  const user = localStorage.getItem("userInfo");
 
-  if (token) {
+  if (user) {
     navigate("/dashboard");
   }
-}, []);
+}, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +37,7 @@ function Signup() {
 
       console.log(res.data);
 
-      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userInfo", JSON.stringify(res.data));
 
       navigate("/dashboard");
     } catch (error) {
