@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {io} from "socket.io-client";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 
-const socket = io("http://localhost:5000");
+const socket = io("http://localhost:5000",{
+      transports: ["websocket"],
+});
 
 function Dashboard() {
 
@@ -17,6 +19,20 @@ const [chats, setChats] = useState([]);
 const [selectedChat, setSelectedChat] = useState(null);
 
 const [users, setUsers]= useState([]);
+
+const messagesEndRef = useRef(null);
+
+const [onlineUsers, setOnlineUsers] = useState([]);
+
+const [isTyping, setIsTyping]= useState(false);
+
+const typingTimeoutRef = useRef(null);
+
+const [sidebarOpen, setSidebarOpen] = useState(true);
+
+const [showUsers, setShowUsers] = useState(false);
+
+const [unreadMessages, setUnreadMessages] = useState({});
 
 const user = JSON.parse(
   localStorage.getItem("userInfo")
@@ -47,6 +63,8 @@ const user = JSON.parse(
 
 };
 
+
+
 const fetchUsers = async () => {
 
   try {
@@ -70,27 +88,104 @@ const fetchUsers = async () => {
 
 };
 
+
+
 fetchUsers();
 fetchChats();
 
 
+
+    socket.off("connect");
+
     socket.on("connect", () => {
     console.log("Connected:", socket.id);
   });
-    
-    socket.on("receive_message", (data) => {
+  socket.emit("user_online", user._id);
 
-  console.log("Received:", data);
+  socket.off("get_online_users");
 
-  fetchMessages(selectedChat?._id);
+socket.on("get_online_users", (users) => {
+
+  setOnlineUsers(users);
 
 });
 
-    return ()=>{
-      socket.disconnect();
-    };
+
+  socket.off("receive_message");
+    
+  socket.on("receive_message", (data) => {
+
+  console.log("Received:", data);
+
+  const incomingChatId =
+    typeof data.chat === "object"
+      ? data.chat._id
+      : data.chat;
+
+  const currentChatId =
+    selectedChat?._id;
+
+  // Opened chat
+  if (currentChatId === incomingChatId) {
+
+    fetchMessages(currentChatId);
+
+    fetchChats();
+
+  }
+
+  // Other chat unread
+  else if (data.sender._id !== user._id) {
+
+    setUnreadMessages((prev) => {
+
+      const currentCount =
+        Number(prev[incomingChatId]) || 0;
+
+      return {
+
+        ...prev,
+
+        [incomingChatId]:
+          currentCount >= 4
+            ? "4+"
+            : currentCount + 1,
+
+      };
+
+    });
+    
+
+  }
+
+});
+
+
+socket.off("show_typing");
+
+socket.on("show_typing", () => {
+
+  setIsTyping(true);
+
+});
+
+socket.off("hide_typing");
+
+socket.on("hide_typing", () => {
+
+  setIsTyping(false);
+
+});
 
   },[selectedChat]);
+
+  useEffect(() => {
+
+  messagesEndRef.current?.scrollIntoView({
+    behavior: "smooth",
+  });
+
+}, [messages, isTyping]);
 
 
   const fetchMessages = async (chatId) => {
@@ -107,6 +202,7 @@ fetchChats();
     );
 
     setMessages(res.data);
+
 
   } catch (error) {
 
@@ -144,6 +240,8 @@ const createChat = async (userId) => {
     // Auto select new chat
     setSelectedChat(res.data);
 
+    socket.emit("join_chat", res.data._id);
+
     // Load messages
     fetchMessages(res.data._id);
 
@@ -176,7 +274,9 @@ const sendMessage = async () => {
 
     socket.emit("send_message", res.data);
 
-
+    socket.emit("stop_typing", selectedChat._id);
+    
+   fetchMessages(selectedChat._id);
 
     setMessage("");
 
@@ -194,28 +294,60 @@ const sendMessage = async () => {
 
     <Navbar />
 
+    <div className="p-3 border-b border-zinc-800 flex items-center">
+
+  <button
+    onClick={() => setSidebarOpen(!sidebarOpen)}
+    className="text-2xl"
+  >
+    ☰
+  </button>
+
+</div>
+
     <div className="flex h-[90vh]">
 
       {/* SIDEBAR */}
 
-      <div className="w-[350px] bg-zinc-900 p-4 border-r border-zinc-800">
+      <div
+  className={`bg-zinc-900 border-r border-zinc-800 transition-all duration-300 overflow-hidden ${
+    sidebarOpen
+      ? "w-[350px] p-4"
+      : "w-0 p-0"
+  }`}
+>
 
         <h2 className="text-2xl font-bold mb-6">
           Chats
         </h2>
         <div className="mb-6">
 
-  <h3 className="text-lg font-semibold mb-3">
-    Users
-  </h3>
+</div>
 
-  <div className="space-y-2">
+        <div className="space-y-3 flex flex-col">
+
+          <button
+  onClick={() => setShowUsers(!showUsers)}
+  className="w-full bg-white text-black p-3 rounded-xl font-semibold mb-4"
+>
+  + New Chat
+</button>
+
+{showUsers && (
+
+  <div className="space-y-2 mb-6">
 
     {users.map((u) => (
 
       <div
         key={u._id}
-        onClick={() => createChat(u._id)}
+        onClick={() => {
+
+          createChat(u._id);
+
+          setShowUsers(false);
+
+        }}
         className="bg-zinc-800 p-3 rounded-lg cursor-pointer hover:bg-zinc-700 transition"
       >
         {u.name}
@@ -225,9 +357,7 @@ const sendMessage = async () => {
 
   </div>
 
-</div>
-
-        <div className="space-y-3">
+)}
 
           {chats.map((chat) => {
 
@@ -239,15 +369,65 @@ const sendMessage = async () => {
               <div
                 key={chat._id}
                 onClick={() => { setSelectedChat(chat);
+
+                   setUnreadMessages((prev) => {
+
+  const updated = { ...prev };
+
+  delete updated[chat._id];
+
+  return updated;
+
+});
+                                  socket.emit("join_chat", chat._id);
                                 fetchMessages(chat._id);
+                                
 
                       }}
 
-                className="bg-zinc-800 p-4 rounded-xl cursor-pointer hover:bg-zinc-700 transition"
+                className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+  selectedChat?._id === chat._id
+    ? "bg-blue-600"
+    : "bg-zinc-800 hover:bg-zinc-700"
+}`}
               >
-                <p className="font-semibold">
-                  {otherUser?.name}
-                </p>
+               <div className="flex items-center justify-between">
+
+  <p className="font-semibold">
+    {otherUser?.name}
+  </p>
+
+  {onlineUsers.includes(otherUser?._id) && (
+
+    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+
+  )}
+
+</div>
+
+{chat.latestMessage && (
+
+  <p className="text-sm text-zinc-400 truncate mt-1">
+
+    {chat.latestMessage.content}
+
+  </p>
+
+)}
+
+{unreadMessages[String(chat._id)] && (
+
+  <div className="mt-2">
+
+    <span className="bg-white text-black text-xs px-2 py-1 rounded-full font-semibold">
+
+      {unreadMessages[String(chat._id)]}
+
+    </span>
+
+  </div>
+
+)}
               </div>
             );
 
@@ -261,7 +441,37 @@ const sendMessage = async () => {
 
       <div className="flex-1 flex flex-col">
 
-        <div className="flex-1 p-6 overflow-y-auto">
+        {selectedChat && (
+
+  <div className="p-4 border-b border-zinc-800 bg-zinc-900">
+
+    <h2 className="text-xl font-bold">
+
+      {
+        selectedChat.users.find(
+          (u) => u._id !== user._id
+        )?.name
+      }
+
+    </h2>
+
+    <p className="text-sm text-zinc-400">
+      {
+  onlineUsers.includes(
+    selectedChat.users.find(
+      (u) => u._id !== user._id
+    )?._id
+  )
+    ? "Online"
+    : "Offline"
+}
+    </p>
+
+  </div>
+
+)}
+
+        <div className="flex-1 p-6 overflow-y-auto scrollbar-hide">
 
           {selectedChat ? (
 
@@ -270,20 +480,60 @@ const sendMessage = async () => {
               {messages.map((msg, index) => (
 
                 <div
-                  key={index}
-                  className="bg-zinc-900 p-3 rounded-lg"
-                >
-                  <p className="font-semibold">
-                    {msg.sender?.name}
-                  </p>
+  key={index}
+  className={`flex ${
+    msg.sender?._id === user._id
+      ? "justify-end"
+      : "justify-start"
+  }`}
+>
 
-                  <p>
-                    {msg.content || msg.text}
-                  </p>
+  <div
+    className={`max-w-[300px] p-3 rounded-2xl ${
+      msg.sender?._id === user._id
+        ? "bg-blue-600"
+        : "bg-zinc-800"
+    }`}
+  >
 
-                </div>
+    <p className="text-xs font-semibold mb-1 text-gray-400">
+      {msg.sender?.name}
+    </p>
+
+    <p>
+      {msg.content || msg.text}
+    </p>
+    <p className="text-xs text-zinc-300 mt-2 text-right">
+  {new Date(msg.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}
+</p>
+
+  </div>
+  
+
+</div>
 
               ))}
+
+              {isTyping && (
+
+  <div className="flex justify-start mb-3">
+
+    <div className="bg-zinc-800 px-4 py-2 rounded-2xl">
+
+      <p className="text-sm text-zinc-400 ">
+        Typing...
+      </p>
+
+    </div>
+
+  </div>
+
+)}
+
+              <div ref={messagesEndRef}></div>
 
             </div>
 
@@ -300,11 +550,23 @@ const sendMessage = async () => {
 
   <div className="p-4 border-t border-zinc-800 flex gap-3">
 
+
     <input
       type="text"
       placeholder="Type a message..."
       value={message}
-      onChange={(e) => setMessage(e.target.value)}
+      onChange={(e) => {setMessage(e.target.value);
+                   socket.emit("typing", selectedChat._id);
+                  if (typingTimeoutRef.current){
+                    clearTimeout(typingTimeoutRef.current);
+                  } 
+
+                  typingTimeoutRef.current = setTimeout(()=>{
+                    socket.emit(
+                      "stop_typing", selectedChat._id
+                    );
+                  }, 2000);
+      }}
       className="flex-1 bg-zinc-900 p-3 rounded-lg outline-none"
     />
 

@@ -35,7 +35,7 @@ const getMessages= async (req,res)=>{
             chat: req.params.chatId,
         })
         .populate("sender","name email")
-        .sort({crestedAt: 1});
+        .sort({createdAt: 1});
 
         res.status(200).json(messages);
     } catch(error){

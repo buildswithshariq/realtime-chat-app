@@ -35,18 +35,63 @@ const io = new Server(server, {
   },
 });
 
+let onlineUsers= [];
+
 io.on("connection", (socket) => {
   console.log("User Connected:", socket.id);
 
   socket.on("send_message", (data) => {
     console.log("Message Received:", data);
-   io.emit("receive_message", data);
+    socket.broadcast
+  .to(data.chat)
+  .emit("receive_message", data);
   });
+  socket.on("join_chat", (chatId) => {
+
+  socket.join(chatId);
+
+  console.log("Joined Chat:", chatId);
+
+});
   socket.on("disconnect", () => {
 
     console.log("User Disconnected");
+    onlineUsers = onlineUsers.filter(
+    (id) => id !== socket.userId
+  );
+
+  io.emit("get_online_users", onlineUsers);
 
   });
+
+  socket.on("user_online", (userId) => {
+
+    socket.userId = userId;
+  if (!onlineUsers.includes(userId)) {
+
+    onlineUsers.push(userId);
+
+  }
+
+  io.emit("get_online_users", onlineUsers);
+
+});
+socket.on("typing", (chatId) => {
+
+  socket.broadcast
+    .to(chatId)
+    .emit("show_typing");
+
+});
+
+socket.on("stop_typing", (chatId) => {
+
+  socket.broadcast
+    .to(chatId)
+    .emit("hide_typing");
+
+});
+
 });
 
 server.listen(PORT, () => {
