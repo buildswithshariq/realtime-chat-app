@@ -7,6 +7,12 @@ const messageSchema = new mongoose.Schema(
             ref:"User",
         },
 
+        status: {
+            type: String,
+            enum: ["sent", "inchat", "seen"],
+            default: "sent",
+        },
+
         content: {
             type: String,
             required: true,

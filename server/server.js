@@ -92,6 +92,14 @@ socket.on("stop_typing", (chatId) => {
 
 });
 
+socket.on("message_status_update", (data) => {
+
+  socket.broadcast
+    .to(data.chatId)
+    .emit("message_status_update", data);
+
+});
+
 });
 
 server.listen(PORT, () => {

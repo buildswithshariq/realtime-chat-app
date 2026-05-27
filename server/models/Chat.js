@@ -8,6 +8,11 @@ const chatSchema = new mongoose.Schema({
             ref:"User"
         },
     ],
+    lastReadAt: {
+        type: Map,
+        of: Date,
+        default: {},
+    },
 },
 {
     timestamps:true,
