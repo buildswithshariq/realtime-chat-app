@@ -45,7 +45,7 @@ export default function Sidebar({
             animate={{ opacity: 1 }}
             className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50"
           >
-            Nebula
+            Start Yapping
           </motion.h2>
         ) : (
           <div className="mx-auto w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center">

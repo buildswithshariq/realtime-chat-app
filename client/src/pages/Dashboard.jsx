@@ -36,6 +36,8 @@ export default function Dashboard() {
   const wasAtBottomRef = useRef(true);
   const justSentRef = useRef(false);
   const justOpenedChatRef = useRef(false);
+  const tabFocusedRef = useRef(!document.hidden);
+  const lastNotifIdRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem("userInfo"));
 
@@ -48,6 +50,16 @@ export default function Dashboard() {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Request notification permission + track tab focus
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    const onVisChange = () => { tabFocusedRef.current = !document.hidden; };
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
   }, []);
 
   // Helper: update message status on server + notify via socket
@@ -164,6 +176,40 @@ export default function Dashboard() {
             };
           });
         }
+      }
+
+      // ── Browser Notification ──
+      const isOwn = data.sender?._id === user._id;
+      const isChatOpen = currentChatId === incomingChatId && tabFocusedRef.current;
+      if (
+        !isOwn &&
+        !isChatOpen &&
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        lastNotifIdRef.current !== data._id
+      ) {
+        lastNotifIdRef.current = data._id;
+        const senderName = data.sender?.name || "Someone";
+        let body;
+        if (data.deleted) body = "Message deleted";
+        else {
+          switch (data.type) {
+            case "gif":   body = "🎞 GIF"; break;
+            case "image": body = "🖼 Image"; break;
+            case "video": body = "🎥 Video"; break;
+            case "audio": body = "🎤 Voice Message"; break;
+            default:      body = data.content || "New message";
+          }
+        }
+        const notif = new Notification(senderName, {
+          body,
+          icon: "/logo.png",
+          tag: data._id,
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
       }
     });
 
@@ -493,10 +539,10 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
-                  Welcome to Nebula
+                  Welcome to yappo
                 </h2>
                 <p className="text-zinc-400 max-w-sm mx-auto text-sm sm:text-base">
-                  Select a conversation to begin.
+                  Select a yapper for yapping..
                 </p>
               </div>
             </div>
