@@ -433,7 +433,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
             <button
               data-media-picker-toggle
               onClick={() => setShowMediaPicker((prev) => !prev)}
-              className={`p-2 rounded-full transition-colors hidden sm:block ${
+              className={`p-2 rounded-full transition-colors ${
                 showMediaPicker ? "text-blue-400 bg-blue-500/15" : "text-zinc-400 hover:text-white hover:bg-white/10"
               }`}
             >
