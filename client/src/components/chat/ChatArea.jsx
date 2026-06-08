@@ -14,13 +14,19 @@ export default function ChatArea({
   justSentRef,
   justOpenedChatRef,
   isAtBottomRef,
-  wasAtBottomRef
+  wasAtBottomRef,
+  onUnsend,
+  onImageClick
 }) {
   const chatContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
 
-  // Smart auto-scroll logic
+  // Smart auto-scroll logic — only scroll when new messages arrive
   useEffect(() => {
+    const isNewMessage = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
     if (justOpenedChatRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       justOpenedChatRef.current = false;
@@ -31,7 +37,8 @@ export default function ChatArea({
       justSentRef.current = false;
       return;
     }
-    if (isAtBottomRef.current) {
+    // Only auto-scroll for actual new messages, not status refetches
+    if (isNewMessage && isAtBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, justOpenedChatRef, justSentRef, isAtBottomRef]);
@@ -58,31 +65,35 @@ export default function ChatArea({
   };
 
   return (
-    <div 
-      className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 relative"
-      ref={chatContainerRef}
-      onScroll={handleScroll}
-    >
-      <div className="max-w-4xl mx-auto flex flex-col justify-end min-h-full">
-        {messages.map((msg, index) => (
-          <MessageBubble 
-            key={msg._id || index} 
-            msg={msg} 
-            isOwnMessage={msg.sender?._id === user._id} 
-          />
-        ))}
+    <div className="flex-1 relative overflow-hidden">
+      <div 
+        className="h-full overflow-y-auto scrollbar-hide p-4 md:p-8"
+        ref={chatContainerRef}
+        onScroll={handleScroll}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col justify-end min-h-full">
+          {messages.map((msg, index) => (
+            <MessageBubble 
+              key={msg._id || index} 
+              msg={msg} 
+              isOwnMessage={msg.sender?._id === user._id}
+              onUnsend={onUnsend}
+              onImageClick={onImageClick}
+            />
+          ))}
 
-        {isTyping && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-zinc-800/80 backdrop-blur-md px-5 py-3 rounded-3xl rounded-tl-sm border border-white/5 flex gap-1.5 items-center shadow-lg">
-              <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></span>
+          {isTyping && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-zinc-800/80 backdrop-blur-md px-5 py-3 rounded-3xl rounded-tl-sm border border-white/5 flex gap-1.5 items-center shadow-lg">
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></span>
+              </div>
             </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} className="h-4"></div>
+          )}
+          
+          <div ref={messagesEndRef} className="h-4"></div>
+        </div>
       </div>
 
       <NewMessageOrb 

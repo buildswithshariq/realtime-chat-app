@@ -13,15 +13,35 @@ const messageSchema = new mongoose.Schema(
             default: "sent",
         },
 
+        type: {
+            type: String,
+            enum: ["text", "gif", "image", "audio", "video"],
+            default: "text",
+        },
+
         content: {
             type: String,
             required: true,
+        },
+
+        metadata: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
+        },
+
+        deleted: {
+            type: Boolean,
+            default: false,
         },
 
         chat: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Chat",
         },
+        reactions: [{
+            userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            emoji: String,
+        }],
     },
     {timestamps: true},
 );

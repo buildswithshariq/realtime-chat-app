@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquarePlus, Search, Menu, X, Users, MessageCircle } from "lucide-react";
+import { MessageSquarePlus, Search, Menu, X, Users, MessageCircle, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 
@@ -15,6 +15,7 @@ export default function Sidebar({
   unreadMessages,
   createChat,
   markChatAsRead,
+  isMobile,
 }) {
   const [showUsers, setShowUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,17 +24,22 @@ export default function Sidebar({
     u.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // On mobile, sidebar is full-screen when visible
+  // On desktop, sidebar animates between 350px and 100px
   return (
     <motion.div
       initial={false}
       animate={{ 
-        width: sidebarOpen ? 350 : 80,
+        width: isMobile ? "100%" : sidebarOpen ? 350 : 80,
       }}
-      className="glass-panel h-full flex flex-col z-20 relative transition-all duration-300 overflow-hidden"
+      className={cn(
+        "glass-panel h-full flex flex-col z-20 transition-all duration-300 overflow-hidden",
+        isMobile ? "absolute inset-0" : "relative"
+      )}
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between border-b border-white/5">
-        {sidebarOpen ? (
+        {sidebarOpen || isMobile ? (
           <motion.h2 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -47,18 +53,20 @@ export default function Sidebar({
           </div>
         )}
         
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-        >
-          {sidebarOpen ? <X className="w-5 h-5 text-zinc-400" /> : <Menu className="w-5 h-5 text-zinc-400 mx-auto" />}
-        </button>
+        {!isMobile && (
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+          >
+            {sidebarOpen ? <X className="w-5 h-5 text-zinc-400" /> : <Menu className="w-5 h-5 text-zinc-400 mx-auto" />}
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hide p-3 flex flex-col gap-2">
         
         {/* Toggle Mode Button */}
-        {sidebarOpen && (
+        {(sidebarOpen || isMobile) && (
           <button
             onClick={() => setShowUsers(!showUsers)}
             className="w-full flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 p-3 rounded-2xl font-semibold transition-all mb-4"
@@ -69,7 +77,7 @@ export default function Sidebar({
         )}
 
         <AnimatePresence mode="wait">
-          {showUsers && sidebarOpen ? (
+          {showUsers && (sidebarOpen || isMobile) ? (
             <motion.div 
               key="users"
               initial={{ opacity: 0, x: -20 }}
@@ -142,8 +150,8 @@ export default function Sidebar({
                       )}
                     </div>
 
-                    {/* Content (only visible if sidebar open) */}
-                    {sidebarOpen && (
+                    {/* Content (only visible if sidebar open or mobile) */}
+                    {(sidebarOpen || isMobile) && (
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="flex items-center justify-between mb-1">
                           <p className="font-semibold text-zinc-100 truncate pr-2">
@@ -155,14 +163,47 @@ export default function Sidebar({
                             </span>
                           )}
                         </div>
-                        {chat.latestMessage && (
-                          <p className={cn(
-                            "text-xs truncate",
-                            unreadCount ? "text-blue-300 font-medium" : "text-zinc-500"
-                          )}>
-                            {chat.latestMessage.content}
-                          </p>
-                        )}
+                        {(() => {
+                          const count = unreadCount;
+                          let previewText = null;
+                          let isUnread = false;
+
+                          // Format preview based on message type
+                          const getPreview = (msg) => {
+                            if (!msg) return null;
+                            if (msg.deleted) return "🚫 This message was deleted";
+                            switch (msg.type) {
+                              case "gif": return "🎞 GIF";
+                              case "image": return "🖼 Image";
+                              case "video": return "🎬 Video";
+                              case "audio": return "🎤 Voice Message";
+                              default: return msg.content;
+                            }
+                          };
+
+                          if (count === "4+") {
+                            previewText = "4+ unread messages";
+                            isUnread = true;
+                          } else if (Number(count) >= 2) {
+                            previewText = `${count} unread messages`;
+                            isUnread = true;
+                          } else if (Number(count) === 1 && chat.latestMessage) {
+                            previewText = getPreview(chat.latestMessage);
+                            isUnread = true;
+                          } else if (chat.latestMessage) {
+                            previewText = getPreview(chat.latestMessage);
+                            isUnread = false;
+                          }
+
+                          return previewText ? (
+                            <p className={cn(
+                              "text-xs truncate",
+                              isUnread ? "text-blue-300 font-medium" : "text-zinc-500"
+                            )}>
+                              {previewText}
+                            </p>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                   </div>

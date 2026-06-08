@@ -10,35 +10,48 @@ const generateToken= (id)=>{
 
 const registerUser = async (req , res )=>{
     try{
-        const {name, email, password}= req.body;
+        const {username, name, password, confirmPassword}= req.body;
 
-        if(!name || !email || !password){
+        if(!username || !name || !password || !confirmPassword){
             return res.status(400).json({
-                message: "Please Fill All Fields",
+                message: "Please fill all fields",
             })
         }
-        const userExist = await User.findOne({email});
+
+        // No spaces in username
+        if (/\s/.test(username)) {
+            return res.status(400).json({
+                message: "Username cannot contain spaces",
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                message: "Passwords do not match",
+            });
+        }
+
+        const userExist = await User.findOne({ username: username.toLowerCase() });
 
         if(userExist){
             return res.status(400).json({
-                message: "User already Exist Please Login"
+                message: "Username already taken"
             });
         }
         
         const salt = await bcrypt.genSalt(10);
-
         const hashedPassword= await bcrypt.hash(password, salt);
 
         const user = await User.create({
-            name ,
-            email,
+            username: username.toLowerCase(),
+            name,
             password: hashedPassword,
         });
 
         res.status(201).json({
             _id: user._id,
+            username: user.username,
             name: user.name,
-            email: user.email,
             token: generateToken(user._id),
         });
 
@@ -46,8 +59,7 @@ const registerUser = async (req , res )=>{
         console.log(error);
 
         res.status(500).json({
-
-            messgae: "Server Error",
+            message: "Server Error",
         });
     }
     
@@ -55,13 +67,19 @@ const registerUser = async (req , res )=>{
 
 const loginUser = async (req , res)=>{
     try{
-        const{email,password}= req.body;
+        const{username, password}= req.body;
 
-        const user = await User.findOne({email});
+        if (!username || !password) {
+            return res.status(400).json({
+                message: "Please fill all fields",
+            });
+        }
+
+        const user = await User.findOne({ username: username.toLowerCase() });
 
         if(!user){
            return res.status(400).json({
-                message: "User not Found Please Register"
+                message: "User not found, please register"
             });
         }
 
@@ -69,14 +87,14 @@ const loginUser = async (req , res)=>{
 
         if(!isMatch){
            return res.status(400).json({
-                message: "Wrong Password",
+                message: "Wrong password",
             });
         }
 
         res.status(200).json({
             _id: user._id,
+            username: user.username,
             name: user.name,
-            email: user.email,
             token: generateToken(user._id),
         });
     } catch(error){

@@ -4,7 +4,7 @@ const Chat = require("../models/Chat");
 const sendMessage = async (req, res)=>{
     
     try{
-        const {content, chatId} = req.body;
+        const {content, chatId, type, metadata} = req.body;
         if(!content || !chatId){
             return res.status(400).json({
                 message:"please provide content and chatId",
@@ -16,9 +16,11 @@ const sendMessage = async (req, res)=>{
             sender: req.user._id,
             content,
             chat: chatId,
+            type: type || "text",
+            metadata: metadata || {},
         });
 
-        message = await message.populate("sender", "name email");
+        message = await message.populate("sender", "name username");
 
         res.status(201).json(message);
 
@@ -37,7 +39,7 @@ const getMessages= async (req,res)=>{
         const messages = await Message.find({
             chat: req.params.chatId,
         })
-        .populate("sender","name email")
+        .populate("sender","name username")
         .sort({createdAt: 1});
 
         res.status(200).json(messages);
@@ -141,4 +143,31 @@ const updateMessageStatus = async (req, res) => {
     }
 };
 
-module.exports = {sendMessage, getMessages, markAsRead, getUnreadCounts, updateMessageStatus};
+// Unsend (soft-delete) a message
+const unsendMessage = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+
+        // Only sender can unsend
+        if (message.sender.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "You can only unsend your own messages" });
+        }
+
+        message.deleted = true;
+        await message.save();
+
+        await message.populate("sender", "name username");
+
+        res.status(200).json(message);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
+
+module.exports = {sendMessage, getMessages, markAsRead, getUnreadCounts, updateMessageStatus, unsendMessage};
