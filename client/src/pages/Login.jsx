@@ -60,7 +60,7 @@ function Login() {
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Welcome Back</h1>
-          <p className="text-zinc-500 text-sm mt-1">Sign in to Nebula</p>
+          <p className="text-zinc-500 text-sm mt-1">Sign in to Yappo</p>
         </div>
 
         {error && (

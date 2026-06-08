@@ -78,7 +78,7 @@ function Signup() {
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Create Account</h1>
-          <p className="text-zinc-500 text-sm mt-1">Join Nebula today</p>
+          <p className="text-zinc-500 text-sm mt-1">Join Yappo today</p>
         </div>
 
         {error && (
