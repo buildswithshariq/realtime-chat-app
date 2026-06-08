@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from "emoji-picker-react";
 import { Search, X, TrendingUp, Clock, Smile, Film } from "lucide-react";
 import axios from "axios";
+import { API_URL } from "../../config/api";
 
 const RECENT_EMOJIS_KEY = "recentEmojis";
 const MAX_RECENT = 20;
@@ -70,7 +71,7 @@ export default function MediaPicker({
   const fetchTrendingGifs = async () => {
     setLoadingGifs(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/gif/trending", {
+      const res = await axios.get(`${API_URL}/api/gif/trending`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { limit: 20 },
       });
@@ -90,7 +91,7 @@ export default function MediaPicker({
       }
       setLoadingGifs(true);
       try {
-        const res = await axios.get("http://localhost:5000/api/gif/search", {
+        const res = await axios.get(`${API_URL}/api/gif/search`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { q: query, limit: 20 },
         });

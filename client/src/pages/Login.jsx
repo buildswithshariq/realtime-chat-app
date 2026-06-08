@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../config/api";
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -38,7 +39,7 @@ function Login() {
     setLoading(true);
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/auth/login",
+        `${API_URL}/api/auth/login`,
         formData
       );
       localStorage.setItem("userInfo", JSON.stringify(res.data));

@@ -9,6 +9,7 @@ import Sidebar from "../components/chat/Sidebar";
 import ChatArea from "../components/chat/ChatArea";
 import CommandDock from "../components/chat/CommandDock";
 import ImageViewer from "../components/chat/ImageViewer";
+import { API_URL } from "../config/api";
 
 export default function Dashboard() {
   const [message, setMessage] = useState("");
@@ -66,7 +67,7 @@ export default function Dashboard() {
   const updateStatus = (chatId, status) => {
     axios
       .put(
-        `http://localhost:5000/api/message/status/${chatId}`,
+        `${API_URL}/api/message/status/${chatId}`,
         { status },
         { headers: { Authorization: `Bearer ${user.token}` } }
       )
@@ -83,7 +84,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/chat", {
+        const res = await axios.get(`${API_URL}/api/chat`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setChats(res.data);
@@ -94,7 +95,7 @@ export default function Dashboard() {
 
     const fetchUsers = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/users", {
+        const res = await axios.get(`${API_URL}/api/users`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setUsers(res.data);
@@ -111,7 +112,7 @@ export default function Dashboard() {
 
     const fetchUnread = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/message/unread", {
+        const res = await axios.get(`${API_URL}/api/message/unread`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setUnreadMessages(res.data);
@@ -152,7 +153,7 @@ export default function Dashboard() {
 
         axios
           .put(
-            `http://localhost:5000/api/message/${currentChatId}/read`,
+            `${API_URL}/api/message/${currentChatId}/read`,
             {},
             { headers: { Authorization: `Bearer ${user.token}` } }
           )
@@ -265,7 +266,7 @@ export default function Dashboard() {
   const fetchMessages = async (chatId) => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/message/${chatId}`,
+        `${API_URL}/api/message/${chatId}`,
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
       setMessages(res.data);
@@ -281,7 +282,7 @@ export default function Dashboard() {
   const createChat = async (userId) => {
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/chat",
+        `${API_URL}/api/chat`,
         { userId },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
@@ -303,7 +304,7 @@ export default function Dashboard() {
 
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/message",
+        `${API_URL}/api/message`,
         {
           content: message,
           chatId: selectedChat._id,
@@ -338,7 +339,7 @@ export default function Dashboard() {
         const formData = new FormData();
         formData.append("file", fileOrUrl);
         const uploadRes = await axios.post(
-          "http://localhost:5000/api/upload",
+          `${API_URL}/api/upload`,
           formData,
           {
             headers: {
@@ -354,7 +355,7 @@ export default function Dashboard() {
       }
 
       const res = await axios.post(
-        "http://localhost:5000/api/message",
+        `${API_URL}/api/message`,
         {
           content: contentUrl,
           chatId: selectedChat._id,
@@ -380,7 +381,7 @@ export default function Dashboard() {
   const unsendMessage = async (messageId) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/message/${messageId}/unsend`,
+        `${API_URL}/api/message/${messageId}/unsend`,
         {},
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
@@ -406,7 +407,7 @@ export default function Dashboard() {
 
     axios
       .put(
-        `http://localhost:5000/api/message/${chatId}/read`,
+        `${API_URL}/api/message/${chatId}/read`,
         {},
         { headers: { Authorization: `Bearer ${user.token}` } }
       )
