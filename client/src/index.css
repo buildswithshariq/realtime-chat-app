@@ -9,6 +9,18 @@
   scrollbar-width: none;
 }
 
+/* ═══════════════════════════════════════════════
+   MOBILE VIEWPORT FIX
+   Use dvh (dynamic viewport height) to handle
+   mobile browser chrome (address bar changes).
+   Falls back to vh for older browsers.
+   ═══════════════════════════════════════════════ */
+
+.dashboard-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* Base body styles for ambient background */
 body {
   @apply bg-zinc-950 text-white min-h-screen overflow-hidden;

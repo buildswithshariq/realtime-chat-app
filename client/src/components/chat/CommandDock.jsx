@@ -267,7 +267,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
 
   if (isRecording) {
     return (
-      <div className="p-4 md:p-6 w-full flex justify-center pb-6">
+      <div className="p-2 sm:p-4 md:p-6 w-full flex justify-center pb-3 sm:pb-6 flex-shrink-0">
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -294,7 +294,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
   // ─── MAIN UI ──────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-6 w-full flex justify-center pb-6 relative">
+    <div className="p-2 sm:p-4 md:p-6 w-full flex justify-center pb-3 sm:pb-6 relative flex-shrink-0">
       {/* Hidden file inputs */}
       <input ref={imageInputRef} type="file" accept={ALLOWED_IMAGE} multiple onChange={handleImageSelect} className="hidden" />
       <input ref={videoInputRef} type="file" accept={ALLOWED_VIDEO} onChange={handleVideoSelect} className="hidden" />
@@ -305,7 +305,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full max-w-4xl glass-card rounded-3xl p-2 flex flex-col relative shadow-2xl shadow-black/50"
+        className="w-full max-w-4xl glass-card rounded-3xl p-1.5 sm:p-2 flex flex-col relative shadow-2xl shadow-black/50 overflow-hidden"
       >
         {/* ─── STAGED PREVIEW AREA ─── */}
         <AnimatePresence>
@@ -386,9 +386,9 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
         </AnimatePresence>
 
         {/* ─── INPUT ROW ─── */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Paperclip / Attach Menu */}
-          <div className="flex gap-1 pl-2 relative">
+          <div className="flex gap-1 pl-1 sm:pl-2 relative flex-shrink-0">
             <button
               onClick={() => setShowAttachMenu((prev) => !prev)}
               className={`p-2 rounded-full transition-colors ${
@@ -426,10 +426,10 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
             value={message}
             onChange={handleTyping}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-zinc-500 px-3 py-2"
+            className="flex-1 min-w-0 bg-transparent border-none outline-none text-white placeholder:text-zinc-500 px-2 sm:px-3 py-2 text-sm sm:text-base"
           />
 
-          <div className="flex gap-1 pr-1">
+          <div className="flex gap-1 pr-0.5 sm:pr-1 flex-shrink-0">
             <button
               data-media-picker-toggle
               onClick={() => setShowMediaPicker((prev) => !prev)}
@@ -449,7 +449,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
                   exit={{ scale: 0, rotate: 90 }}
                   onClick={handleSend}
                   disabled={uploading}
-                  className={`p-3 rounded-full shadow-lg transition-all flex items-center justify-center ${
+                  className={`p-2.5 sm:p-3 rounded-full shadow-lg transition-all flex items-center justify-center flex-shrink-0 ${
                     uploading
                       ? "bg-blue-800 text-blue-300 cursor-wait"
                       : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
@@ -464,7 +464,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
                   animate={{ scale: 1 }}
                   exit={{ scale: 0 }}
                   onClick={startRecording}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 p-3 rounded-full transition-all flex items-center justify-center"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 p-2.5 sm:p-3 rounded-full transition-all flex items-center justify-center flex-shrink-0"
                 >
                   <Mic className="w-4 h-4" />
                 </motion.button>

@@ -39,6 +39,7 @@ export default function Dashboard() {
   const justOpenedChatRef = useRef(false);
   const tabFocusedRef = useRef(!document.hidden);
   const lastNotifIdRef = useRef(null);
+  const chatsRef = useRef([]);
 
   const user = JSON.parse(localStorage.getItem("userInfo"));
 
@@ -88,6 +89,9 @@ export default function Dashboard() {
           headers: { Authorization: `Bearer ${user.token}` },
         });
         setChats(res.data);
+        chatsRef.current = res.data;
+        // Join all chat rooms so we receive messages even from the sidebar
+        res.data.forEach((chat) => socket.emit("join_chat", chat._id));
       } catch (error) {
         console.log(error);
       }
@@ -129,6 +133,17 @@ export default function Dashboard() {
   useEffect(() => {
     socket.emit("setup", user);
     socket.on("connected", () => console.log("Connected to socket"));
+
+    // Re-join all chat rooms on reconnection (mobile can drop connections)
+    const handleReconnect = () => {
+      socket.emit("setup", user);
+      chatsRef.current.forEach((chat) => socket.emit("join_chat", chat._id));
+      if (selectedChatRef.current) {
+        socket.emit("join_chat", selectedChatRef.current._id);
+      }
+    };
+    socket.on("reconnect", handleReconnect);
+    socket.io.on("reconnect", handleReconnect);
 
     socket.on("get_online_users", (users) => {
       setOnlineUsers(users);
@@ -202,15 +217,27 @@ export default function Dashboard() {
             default:      body = data.content || "New message";
           }
         }
-        const notif = new Notification(senderName, {
+
+        // Use Service Worker notification for mobile support, fall back to constructor
+        const notifOptions = {
           body,
           icon: "/logo.png",
           tag: data._id,
-        });
-        notif.onclick = () => {
-          window.focus();
-          notif.close();
+          badge: "/logo.png",
+          vibrate: [200, 100, 200],
+          renotify: true,
         };
+
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(senderName, notifOptions);
+          }).catch(() => {
+            // Fallback to constructor if SW fails
+            try { new Notification(senderName, notifOptions); } catch (_) {}
+          });
+        } else {
+          try { new Notification(senderName, notifOptions); } catch (_) {}
+        }
       }
     });
 
@@ -253,6 +280,8 @@ export default function Dashboard() {
 
     return () => {
       socket.off("connected");
+      socket.off("reconnect");
+      socket.io.off("reconnect");
       socket.off("get_online_users");
       socket.off("receive_message");
       socket.off("message_unsent");
@@ -289,6 +318,9 @@ export default function Dashboard() {
 
       if (!chats.find((c) => c._id === res.data._id)) {
         setChats([res.data, ...chats]);
+        chatsRef.current = [res.data, ...chatsRef.current];
+        // Join the new chat room immediately
+        socket.emit("join_chat", res.data._id);
       }
       handleChatSelect(res.data);
     } catch (error) {
@@ -428,10 +460,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 overflow-hidden">
-      <Navbar />
+    <div className="dashboard-shell flex flex-col bg-zinc-950 overflow-hidden">
+      {(!isMobile || !selectedChat) && <Navbar />}
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Sidebar: on mobile, show only when no chat is selected */}
         {(!isMobile || !selectedChat) && (
           <Sidebar
@@ -452,11 +484,11 @@ export default function Dashboard() {
 
         {/* Chat area: on mobile, show only when a chat is selected */}
         {(!isMobile || selectedChat) && (
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-black/20">
+        <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden bg-black/20">
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="p-3 sm:p-4 border-b border-white/5 glass flex items-center justify-between z-10">
+              <div className="p-3 sm:p-4 border-b border-white/5 glass flex items-center justify-between z-40 backdrop-blur-xl flex-shrink-0">
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Mobile back button */}
                   {isMobile && (

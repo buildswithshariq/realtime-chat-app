@@ -33,7 +33,7 @@ export default function Sidebar({
         width: isMobile ? "100%" : sidebarOpen ? 350 : 80,
       }}
       className={cn(
-        "glass-panel h-full flex flex-col z-20 transition-all duration-300 overflow-hidden",
+        "glass-panel h-full min-h-0 flex flex-col z-20 transition-all duration-300 overflow-hidden",
         isMobile ? "absolute inset-0" : "relative"
       )}
     >
