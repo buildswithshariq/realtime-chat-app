@@ -65,13 +65,14 @@ export default function ChatArea({
   };
 
   return (
-    <div className="flex-1 relative overflow-hidden">
+    <div className="flex-1 relative overflow-hidden min-h-0">
       <div 
         className="h-full overflow-y-auto scrollbar-hide p-4 md:p-8"
         ref={chatContainerRef}
         onScroll={handleScroll}
       >
-        <div className="max-w-4xl mx-auto flex flex-col justify-end min-h-full">
+        <div className="max-w-4xl mx-auto flex flex-col min-h-full">
+          <div className="flex-1 shrink-0 min-h-0"></div>
           {messages.map((msg, index) => (
             <MessageBubble 
               key={msg._id || index} 

@@ -30,14 +30,24 @@ const createChat = async (req, res) => {
   }
 };
 
-const getChats= async (req, res)=>{
-    try{
+const getChats = async (req, res) => {
+    try {
         const chats = await Chat.find({
             users: req.user._id,
-        }).populate("users", "-password");
+        }).populate("users", "-password").lean();
+
+        const Message = require("../models/Message");
+        
+        // Fetch latest message for each chat to show previews in the sidebar
+        for (let chat of chats) {
+            const latestMsg = await Message.findOne({ chat: chat._id }).sort({ createdAt: -1 }).lean();
+            if (latestMsg) {
+                chat.latestMessage = latestMsg;
+            }
+        }
 
         res.status(200).json(chats);
-    } catch(error){
+    } catch (error) {
         console.log(error);
 
         res.status(500).json({

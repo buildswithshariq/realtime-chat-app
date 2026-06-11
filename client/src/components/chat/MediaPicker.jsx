@@ -61,6 +61,15 @@ export default function MediaPicker({
     };
   }, [isOpen, onClose]);
 
+  // Switch to GIF tab when open-gif-picker event is fired
+  useEffect(() => {
+    const handleOpenGif = () => {
+      setActiveTab("gif");
+    };
+    window.addEventListener("open-gif-picker", handleOpenGif);
+    return () => window.removeEventListener("open-gif-picker", handleOpenGif);
+  }, []);
+
   // Fetch trending GIFs when GIF tab opens
   useEffect(() => {
     if (isOpen && activeTab === "gif" && gifs.length === 0 && !gifSearch) {

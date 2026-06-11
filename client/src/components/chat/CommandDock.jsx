@@ -42,6 +42,15 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
     };
   }, []);
 
+  // Listen for global open-gif-picker event
+  useEffect(() => {
+    const handleOpenGif = () => {
+      setShowMediaPicker(true);
+    };
+    window.addEventListener("open-gif-picker", handleOpenGif);
+    return () => window.removeEventListener("open-gif-picker", handleOpenGif);
+  }, []);
+
   const hasStagedMedia = stagedImages.length > 0 || stagedVideo || stagedAudio;
 
   const handleTyping = (e) => {
@@ -267,11 +276,14 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
 
   if (isRecording) {
     return (
-      <div className="p-2 sm:p-4 md:p-6 w-full flex justify-center pb-3 sm:pb-6 flex-shrink-0">
+      <div 
+        className="p-1.5 sm:p-4 md:p-6 w-full flex justify-center flex-shrink-0"
+        style={{ paddingBottom: "calc(0.375rem + env(safe-area-inset-bottom))" }}
+      >
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="w-full max-w-4xl glass-card rounded-full p-2 flex items-center gap-3 relative shadow-2xl shadow-black/50"
+          className="w-full max-w-4xl glass-card rounded-3xl sm:rounded-full p-1.5 sm:p-2 flex items-center gap-3 relative shadow-2xl shadow-black/50"
         >
           <button onClick={cancelRecording} className="p-2 ml-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -294,7 +306,10 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
   // ─── MAIN UI ──────────────────────────────────────────────
 
   return (
-    <div className="p-2 sm:p-4 md:p-6 w-full flex justify-center pb-3 sm:pb-6 relative flex-shrink-0">
+    <div 
+      className="p-1.5 sm:p-4 md:p-6 w-full flex justify-center relative flex-shrink-0"
+      style={{ paddingBottom: "calc(0.375rem + env(safe-area-inset-bottom))" }}
+    >
       {/* Hidden file inputs */}
       <input ref={imageInputRef} type="file" accept={ALLOWED_IMAGE} multiple onChange={handleImageSelect} className="hidden" />
       <input ref={videoInputRef} type="file" accept={ALLOWED_VIDEO} onChange={handleVideoSelect} className="hidden" />
@@ -305,7 +320,7 @@ export default function CommandDock({ message, setMessage, sendMessage, sendMedi
       <motion.div
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="w-full max-w-4xl glass-card rounded-3xl p-1.5 sm:p-2 flex flex-col relative shadow-2xl shadow-black/50 overflow-hidden"
+        className="w-full max-w-4xl glass-card rounded-3xl p-1.5 sm:p-2 flex flex-col relative shadow-2xl shadow-black/50"
       >
         {/* ─── STAGED PREVIEW AREA ─── */}
         <AnimatePresence>

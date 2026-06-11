@@ -20,6 +20,8 @@ export default function Sidebar({
   const [showUsers, setShowUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  console.log("DEBUG CHATS ARRAY:", chats);
+
   const filteredUsers = users.filter((u) => 
     u.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -38,7 +40,7 @@ export default function Sidebar({
       )}
     >
       {/* Header */}
-      <div className="p-4 flex items-center justify-between border-b border-white/5">
+      <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] flex items-center justify-between border-b border-white/5">
         {sidebarOpen || isMobile ? (
           <motion.h2 
             initial={{ opacity: 0 }}
@@ -105,8 +107,13 @@ export default function Sidebar({
                   }}
                   className="p-3 rounded-xl cursor-pointer hover:bg-white/5 border border-transparent hover:border-white/5 transition-all flex items-center gap-3"
                 >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
-                    {u.name.charAt(0).toUpperCase()}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    {onlineUsers.includes(u._id) && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-zinc-900 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                    )}
                   </div>
                   <span className="font-medium text-zinc-200">{u.name}</span>
                 </div>
@@ -187,8 +194,8 @@ export default function Sidebar({
                           } else if (Number(count) >= 2) {
                             previewText = `${count} unread messages`;
                             isUnread = true;
-                          } else if (Number(count) === 1 && chat.latestMessage) {
-                            previewText = getPreview(chat.latestMessage);
+                          } else if (Number(count) === 1) {
+                            previewText = chat.latestMessage ? getPreview(chat.latestMessage) : "1 unread message";
                             isUnread = true;
                           } else if (chat.latestMessage) {
                             previewText = getPreview(chat.latestMessage);

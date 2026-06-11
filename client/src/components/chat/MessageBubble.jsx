@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { Play, Pause, Trash2, Ban, Maximize2 } from "lucide-react";
+import { Play, Pause, Trash2, Ban, Maximize2, Copy, Download, Film } from "lucide-react";
 
 // ─── AUDIO PLAYER ───────────────────────────────────────────
 
@@ -137,7 +137,7 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
   const isMedia = isGif || isImage || isVideo || isAudio;
 
   const handlePressStart = () => {
-    if (!isOwnMessage || msg.deleted) return;
+    if (msg.deleted) return;
     longPressTimer.current = setTimeout(() => setShowUnsend(true), 500);
   };
 
@@ -149,6 +149,69 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
     setShowUnsend(false);
     onUnsend(msg._id);
   };
+
+  const handleCopy = async () => {
+    try {
+      const textToCopy = msg.content || msg.text || msg.metadata?.caption || "";
+      if (textToCopy) {
+        await navigator.clipboard.writeText(textToCopy);
+      }
+      setShowUnsend(false);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(msg.content);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      const ext = isVideo ? "mp4" : "jpg";
+      a.download = `yappo-${msg._id}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setShowUnsend(false);
+    } catch (err) {
+      console.error("Failed to download:", err);
+      // Fallback if fetch fails (e.g. CORS)
+      window.open(msg.content, "_blank");
+      setShowUnsend(false);
+    }
+  };
+
+  const handleSeeAllGif = () => {
+    window.dispatchEvent(new CustomEvent("open-gif-picker"));
+    setShowUnsend(false);
+  };
+
+  const popupRef = useRef(null);
+
+  useEffect(() => {
+    if (!showUnsend) return;
+    
+    const handleOutsideClick = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setShowUnsend(false);
+      }
+    };
+    const handleScroll = () => setShowUnsend(false);
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("touchstart", handleOutsideClick, { capture: true });
+    window.addEventListener("mousedown", handleOutsideClick, { capture: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("touchstart", handleOutsideClick, { capture: true });
+      window.removeEventListener("mousedown", handleOutsideClick, { capture: true });
+    };
+  }, [showUnsend]);
 
   // ─── DELETED ──────────────────────────────────────────────
 
@@ -277,22 +340,53 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
         </div>
       </div>
 
-      {/* Unsend popup */}
+      {/* Action popup */}
       <AnimatePresence>
         {showUnsend && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowUnsend(false)} />
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              onClick={handleUnsend}
-              className={cn("unsend-btn z-50", isOwnMessage ? "right-0 mr-2" : "left-0 ml-2")}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Unsend</span>
-            </motion.button>
-          </>
+          <motion.div
+            ref={popupRef}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className={cn("absolute z-50 flex gap-2 top-full mt-1", isOwnMessage ? "right-0" : "left-0")}
+          >
+            {!isMedia && (
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800/90 backdrop-blur-md border border-white/10 rounded-xl text-white text-xs font-semibold shadow-xl hover:bg-zinc-700 transition-colors whitespace-nowrap"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy</span>
+              </button>
+            )}
+            {(isImage || isVideo) && (
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/90 backdrop-blur-md border border-blue-500/30 rounded-xl text-white text-xs font-semibold shadow-xl hover:bg-blue-600 transition-colors whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download {isImage ? "Image" : "Video"}</span>
+              </button>
+            )}
+            {isGif && (
+              <button
+                onClick={handleSeeAllGif}
+                className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/90 backdrop-blur-md border border-purple-500/30 rounded-xl text-white text-xs font-semibold shadow-xl hover:bg-purple-600 transition-colors whitespace-nowrap"
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>See all GIF</span>
+              </button>
+            )}
+              {isOwnMessage && (
+                <button
+                  onClick={handleUnsend}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-red-500/90 backdrop-blur-md border border-red-500/30 rounded-xl text-white text-xs font-semibold shadow-xl hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Unsend</span>
+                </button>
+              )}
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

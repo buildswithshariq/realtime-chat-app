@@ -12,7 +12,7 @@ function Navbar() {
   };
 
   return (
-    <div className="z-50 bg-zinc-900 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-white/5 flex-shrink-0">
+    <div className="z-50 bg-zinc-900 px-4 sm:px-6 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:py-4 flex items-center justify-between border-b border-white/5 flex-shrink-0">
       <div className="min-w-0">
         <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
           Yappo

@@ -54,6 +54,30 @@ export default function Dashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Disable inspect element in chat area
+  useEffect(() => {
+    const handleContextMenu = (e) => e.preventDefault();
+    const handleKeyDown = (e) => {
+      if (
+        e.keyCode === 123 || // F12
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Ctrl+Shift+I/J/C
+        (e.ctrlKey && e.keyCode === 85) || // Ctrl+U
+        (e.metaKey && e.altKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Cmd+Option+I/J/C
+        (e.metaKey && e.keyCode === 85) // Cmd+U
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   // Request notification permission + track tab focus
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -92,6 +116,26 @@ export default function Dashboard() {
         chatsRef.current = res.data;
         // Join all chat rooms so we receive messages even from the sidebar
         res.data.forEach((chat) => socket.emit("join_chat", chat._id));
+
+        // Fallback: If backend didn't provide latestMessage, fetch it
+        res.data.forEach(async (chat) => {
+          if (!chat.latestMessage) {
+            try {
+              const msgRes = await axios.get(`${API_URL}/api/message/${chat._id}`, {
+                headers: { Authorization: `Bearer ${user.token}` },
+              });
+              const msgs = msgRes.data;
+              if (msgs && msgs.length > 0) {
+                const latest = msgs[msgs.length - 1];
+                setChats((prev) => 
+                  prev.map(c => c._id === chat._id ? { ...c, latestMessage: latest } : c)
+                );
+              }
+            } catch (err) {
+              console.log("Failed to fetch fallback latestMessage", err);
+            }
+          }
+        });
       } catch (error) {
         console.log(error);
       }
@@ -276,6 +320,13 @@ export default function Dashboard() {
           msg._id === data._id ? { ...msg, deleted: true } : msg
         )
       );
+      setChats((prev) => 
+        prev.map(c => 
+          c.latestMessage?._id === data._id 
+            ? { ...c, latestMessage: { ...c.latestMessage, deleted: true } } 
+            : c
+        )
+      );
     });
 
     return () => {
@@ -424,6 +475,14 @@ export default function Dashboard() {
         )
       );
 
+      setChats((prev) => 
+        prev.map(c => 
+          c.latestMessage?._id === messageId 
+            ? { ...c, latestMessage: { ...c.latestMessage, deleted: true } } 
+            : c
+        )
+      );
+
       socket.emit("message_unsent", res.data);
     } catch (error) {
       console.log(error);
@@ -488,7 +547,10 @@ export default function Dashboard() {
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="p-3 sm:p-4 border-b border-white/5 glass flex items-center justify-between z-40 backdrop-blur-xl flex-shrink-0">
+              <div 
+                className="p-3 sm:p-4 border-b border-white/5 glass flex items-center justify-between z-40 backdrop-blur-xl flex-shrink-0"
+                style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+              >
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Mobile back button */}
                   {isMobile && (
