@@ -125,16 +125,21 @@ function VideoCard({ src }) {
 
 // ─── MESSAGE BUBBLE ─────────────────────────────────────────
 
-export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClick }) {
+export default function MessageBubble({ msg, isOwnMessage, isLatest, onUnsend, onImageClick, isMobile }) {
   const [gifLoaded, setGifLoaded] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [showUnsend, setShowUnsend] = useState(false);
   const longPressTimer = useRef(null);
+  const textContent = msg.content || msg.text || "";
   const isGif = msg.type === "gif";
   const isImage = msg.type === "image";
   const isVideo = msg.type === "video";
   const isAudio = msg.type === "audio";
-  const isMedia = isGif || isImage || isVideo || isAudio;
+  const emojiArray = textContent ? textContent.match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu) : [];
+  const emojiCount = emojiArray ? emojiArray.length : 0;
+  const isPureEmoji = textContent && textContent.trim().length > 0 && /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\s)+$/u.test(textContent);
+  const isEmojiOnly = !isGif && !isImage && !isVideo && !isAudio && isPureEmoji && emojiCount < 11;
+  const isMedia = isGif || isImage || isVideo || isAudio || isEmojiOnly;
 
   const handlePressStart = () => {
     if (msg.deleted) return;
@@ -231,6 +236,13 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
             <Ban className="w-4 h-4" />
             <span className="text-[14px]">This message was deleted</span>
           </div>
+          {/* Status for Own Messages (if deleted, maybe hide it) */}
+          {isLatest && isOwnMessage && msg.status === "seen" && (
+            <div className="absolute -bottom-5 right-0 flex items-center gap-1.5 text-zinc-500">
+              <span className="text-[10px] font-medium">Seen</span>
+              <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+            </div>
+          )}
         </div>
       </motion.div>
     );
@@ -240,40 +252,48 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
       className={cn("flex w-full mb-4 relative", isOwnMessage ? "justify-end" : "justify-start")}
-      onMouseDown={handlePressStart}
-      onMouseUp={handlePressEnd}
-      onMouseLeave={handlePressEnd}
-      onTouchStart={handlePressStart}
-      onTouchEnd={handlePressEnd}
     >
+      {/* Desktop Timestamp (Own Message: Left side) */}
+      {!isMobile && isOwnMessage && (
+        <div className="flex items-end mr-2 pb-1">
+          <span className="text-[10.5px] font-medium text-zinc-500 whitespace-nowrap">
+            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      )}
+
+      {/* Mobile Swipe Timestamp */}
+      {isMobile && (
+        <div className="absolute top-1/2 -translate-y-1/2 -right-28 w-16 flex items-center justify-start pointer-events-none">
+          <span className="text-[10px] font-medium text-zinc-500 whitespace-nowrap">
+            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      )}
+
       <div
+        onMouseDown={handlePressStart}
+        onMouseUp={handlePressEnd}
+        onMouseLeave={handlePressEnd}
+        onTouchStart={handlePressStart}
+        onTouchEnd={handlePressEnd}
         className={cn(
-          "max-w-[75%] sm:max-w-[60%] rounded-3xl shadow-lg relative group",
-          isMedia && !isAudio ? "p-1.5" : "p-4",
-          isOwnMessage
-            ? isMedia && !isAudio
-              ? "bg-blue-600/30 rounded-tr-sm border border-blue-500/20"
-              : "bg-blue-600 text-white rounded-tr-sm shadow-blue-900/20"
-            : isMedia && !isAudio
-              ? "bg-zinc-800/40 backdrop-blur-md rounded-tl-sm border border-white/5"
+          "max-w-[75%] sm:max-w-[60%] rounded-3xl relative group",
+          isMedia && !isAudio ? "bg-transparent shadow-none" : "shadow-lg p-4",
+          !isMedia || isAudio ? (
+            isOwnMessage
+              ? "bg-blue-600 text-white rounded-tr-sm shadow-blue-900/20"
               : "bg-zinc-800/80 backdrop-blur-md border border-white/5 text-zinc-100 rounded-tl-sm"
+          ) : ""
         )}
       >
-        {!isOwnMessage && (
-          <p className={cn(
-            "text-[11px] font-bold tracking-wide mb-1 text-zinc-400 uppercase",
-            isMedia && !isAudio && "px-2 pt-1"
-          )}>
-            {msg.sender?.name}
-          </p>
-        )}
-
         {/* Text */}
-        {!isMedia && <p className="text-[15px] leading-relaxed">{msg.content || msg.text}</p>}
+        {!isMedia && <p className={cn("text-[15px]", isPureEmoji ? "leading-[1.15] tracking-wide" : "leading-relaxed")}>{textContent}</p>}
+        {isEmojiOnly && <p className="text-3xl leading-[1.15] text-center drop-shadow-md py-1">{textContent}</p>}
 
         {/* GIF */}
         {isGif && (
@@ -315,30 +335,35 @@ export default function MessageBubble({ msg, isOwnMessage, onUnsend, onImageClic
         )}
 
         {/* Video */}
-        {isVideo && <VideoCard src={msg.content} />}
+        {isVideo && <div className={cn("overflow-hidden rounded-[16px]", isOwnMessage ? "" : "shadow-md")}><VideoCard src={msg.content} /></div>}
 
         {/* Audio */}
         {isAudio && <AudioPlayer src={msg.content} />}
 
-        {/* Timestamp + Status */}
-        <div className={cn(
-          "flex items-center gap-1.5 mt-2",
-          isOwnMessage ? "justify-end" : "justify-start",
-          isMedia && !isAudio && "px-2 pb-1"
-        )}>
-          <span className={cn("text-[10px] font-medium", isOwnMessage ? "text-blue-200" : "text-zinc-500")}>
-            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-          {isOwnMessage && (
+        {/* Status (Only on latest message) */}
+        {isOwnMessage && isLatest && (
+          <div className={cn(
+            "flex items-center gap-1.5 mt-1 justify-end",
+            isMedia && !isAudio && "absolute -bottom-5 right-1"
+          )}>
             <span className={cn(
-              "text-[10px] font-bold uppercase tracking-wider ml-1",
+              "text-[10px] font-bold uppercase tracking-wider",
               msg.status === "seen" ? "text-green-300" : msg.status === "inchat" ? "text-blue-300" : "text-blue-200/50"
             )}>
               {msg.status === "seen" ? "Seen" : msg.status === "inchat" ? "In Chat" : "Sent"}
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Desktop Timestamp (Other Message: Right side) */}
+      {!isMobile && !isOwnMessage && (
+        <div className="flex items-end ml-2 pb-1">
+          <span className="text-[10.5px] font-medium text-zinc-500 whitespace-nowrap">
+            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+      )}
 
       {/* Action popup */}
       <AnimatePresence>

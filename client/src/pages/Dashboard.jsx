@@ -3,6 +3,7 @@ import axios from "axios";
 import socket from "../lib/socket";
 import { formatLastSeen } from "../lib/utils";
 import Navbar from "../components/Navbar";
+import usePushNotifications from "../hooks/usePushNotifications";
 
 // Chat Components
 import Sidebar from "../components/chat/Sidebar";
@@ -12,6 +13,9 @@ import ImageViewer from "../components/chat/ImageViewer";
 import { API_URL } from "../config/api";
 
 export default function Dashboard() {
+  const user = JSON.parse(localStorage.getItem("userInfo"));
+  usePushNotifications(user);
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [chats, setChats] = useState([]);
@@ -19,10 +23,17 @@ export default function Dashboard() {
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState({});
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [lastSeenMap, setLastSeenMap] = useState({});
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Image viewer state
   const [viewerImages, setViewerImages] = useState([]);
@@ -40,8 +51,6 @@ export default function Dashboard() {
   const tabFocusedRef = useRef(!document.hidden);
   const lastNotifIdRef = useRef(null);
   const chatsRef = useRef([]);
-
-  const user = JSON.parse(localStorage.getItem("userInfo"));
 
   useEffect(() => {
     selectedChatRef.current = selectedChat;
@@ -109,6 +118,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchChats = async () => {
       try {
+        setIsLoadingChats(true);
         const res = await axios.get(`${API_URL}/api/chat`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
@@ -138,11 +148,14 @@ export default function Dashboard() {
         });
       } catch (error) {
         console.log(error);
+      } finally {
+        setIsLoadingChats(false);
       }
     };
 
     const fetchUsers = async () => {
       try {
+        setIsLoadingUsers(true);
         const res = await axios.get(`${API_URL}/api/users`, {
           headers: { Authorization: `Bearer ${user.token}` },
         });
@@ -155,6 +168,8 @@ export default function Dashboard() {
         setLastSeenMap((prev) => ({ ...prev, ...map }));
       } catch (error) {
         console.log(error);
+      } finally {
+        setIsLoadingUsers(false);
       }
     };
 
@@ -201,14 +216,25 @@ export default function Dashboard() {
       // Update sidebar: set latestMessage and move chat to top
       setChats((prev) => {
         const idx = prev.findIndex((c) => c._id === incomingChatId);
-        if (idx === -1) return prev;
+        if (idx === -1) {
+          // If chat was empty and hidden, add it now!
+          if (typeof data.chat === "object") {
+            const newChat = { ...data.chat, latestMessage: data };
+            return [newChat, ...prev];
+          }
+          return prev;
+        }
         const updatedChat = { ...prev[idx], latestMessage: data };
         return [updatedChat, ...prev.filter((c) => c._id !== incomingChatId)];
       });
 
       // SAME opened chat
       if (currentChatId === incomingChatId) {
-        fetchMessages(currentChatId);
+        setMessages((prev) => {
+          // Prevent duplicates if we already added it (e.g., via our own send)
+          if (prev.find((m) => m._id === data._id)) return prev;
+          return [...prev, data];
+        });
 
         axios
           .put(
@@ -343,19 +369,74 @@ export default function Dashboard() {
     };
   }, [user.token, user._id]);
 
-  const fetchMessages = async (chatId) => {
+  const fetchMessages = async (chatId, reset = true) => {
     try {
+      if (reset) {
+        setPage(1);
+        setHasMore(true);
+        setMessages([]); // Clear instantly to prevent flashing old messages
+        setIsLoadingMore(false); // Reset loading state
+      }
+      
+      const currentPage = reset ? 1 : page;
       const res = await axios.get(
-        `${API_URL}/api/message/${chatId}`,
+        `${API_URL}/api/message/${chatId}?page=${currentPage}&limit=20`,
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
-      setMessages(res.data);
+      
+      // Prevent race conditions: If user switched chats before this request finished, abort!
+      if (selectedChatRef.current?._id !== chatId) {
+        return;
+      }
 
-      if (selectedChatRef.current?._id === chatId && isAtBottomRef.current) {
+      if (res.data.length < 20) {
+        setHasMore(false);
+      }
+
+      if (reset) {
+        setMessages(res.data);
+      } else {
+        // Prepend older messages
+        setMessages((prev) => [...res.data, ...prev]);
+      }
+
+      if (isAtBottomRef.current) {
         updateStatus(chatId, "seen");
       }
     } catch (error) {
       console.log(error);
+    }
+  };
+
+  const fetchMoreMessages = async () => {
+    if (!hasMore || isLoadingMore || !selectedChat) return;
+    
+    const currentChatId = selectedChat._id;
+    const nextPage = page + 1;
+    
+    setIsLoadingMore(true);
+
+    try {
+      const res = await axios.get(
+        `${API_URL}/api/message/${currentChatId}?page=${nextPage}&limit=20`,
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      // Prevent race condition if chat was switched while fetching
+      if (selectedChatRef.current?._id !== currentChatId) {
+        setIsLoadingMore(false);
+        return;
+      }
+
+      setPage(nextPage);
+      if (res.data.length < 20) setHasMore(false);
+      setMessages((prevMsgs) => [...res.data, ...prevMsgs]);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      if (selectedChatRef.current?._id === currentChatId) {
+        setIsLoadingMore(false);
+      }
     }
   };
 
@@ -368,14 +449,15 @@ export default function Dashboard() {
       );
 
       if (!chats.find((c) => c._id === res.data._id)) {
-        setChats([res.data, ...chats]);
-        chatsRef.current = [res.data, ...chatsRef.current];
+        // Do NOT add to `chats` state yet so it remains hidden in the sidebar
         // Join the new chat room immediately
         socket.emit("join_chat", res.data._id);
       }
       handleChatSelect(res.data);
+      return res.data;
     } catch (error) {
       console.log(error);
+      throw error;
     }
   };
 
@@ -507,6 +589,7 @@ export default function Dashboard() {
 
   const handleChatSelect = (chat) => {
     setSelectedChat(chat);
+    selectedChatRef.current = chat; // Update synchronously to fix race conditions immediately!
     setHasNewMessages(false);
     setIsTyping(false);
     isAtBottomRef.current = true;
@@ -538,6 +621,8 @@ export default function Dashboard() {
             createChat={createChat}
             markChatAsRead={markChatAsRead}
             isMobile={isMobile}
+            isLoadingChats={isLoadingChats}
+            isLoadingUsers={isLoadingUsers}
           />
         )}
 
@@ -593,10 +678,14 @@ export default function Dashboard() {
                 user={user}
                 selectedChat={selectedChat}
                 isTyping={isTyping}
+                isMobile={isMobile}
                 hasNewMessages={hasNewMessages}
                 setHasNewMessages={setHasNewMessages}
                 updateStatus={updateStatus}
                 fetchMessages={fetchMessages}
+                fetchMoreMessages={fetchMoreMessages}
+                hasMore={hasMore}
+                isLoadingMore={isLoadingMore}
                 justSentRef={justSentRef}
                 justOpenedChatRef={justOpenedChatRef}
                 isAtBottomRef={isAtBottomRef}

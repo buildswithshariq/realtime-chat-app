@@ -4,6 +4,13 @@ const {Server}= require("socket.io");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const webpush = require("web-push");
+
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || "mailto:admin@localhost",
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 const connectDB = require("./config/db");
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");

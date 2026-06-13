@@ -16,14 +16,18 @@ export default function Sidebar({
   createChat,
   markChatAsRead,
   isMobile,
+  isLoadingChats,
+  isLoadingUsers,
 }) {
   const [showUsers, setShowUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [creatingChatId, setCreatingChatId] = useState(null);
 
   console.log("DEBUG CHATS ARRAY:", chats);
 
   const filteredUsers = users.filter((u) => 
-    u.name.toLowerCase().includes(searchQuery.toLowerCase())
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (u.username && u.username.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // On mobile, sidebar is full-screen when visible
@@ -98,26 +102,50 @@ export default function Sidebar({
                 />
               </div>
 
-              {filteredUsers.map((u) => (
-                <div
-                  key={u._id}
-                  onClick={() => {
-                    createChat(u._id);
-                    setShowUsers(false);
-                  }}
-                  className="p-3 rounded-xl cursor-pointer hover:bg-white/5 border border-transparent hover:border-white/5 transition-all flex items-center gap-3"
-                >
-                  <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
-                    {onlineUsers.includes(u._id) && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-zinc-900 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
-                    )}
+              {isLoadingUsers ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={`user-skeleton-${i}`} className="p-3 rounded-xl border border-transparent flex items-center gap-3 animate-pulse">
+                    <div className="w-10 h-10 rounded-full bg-white/10 flex-shrink-0"></div>
+                    <div className="h-4 bg-white/10 rounded w-1/2"></div>
                   </div>
-                  <span className="font-medium text-zinc-200">{u.name}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                filteredUsers.map((u) => (
+                  <div
+                    key={u._id}
+                    onClick={async () => {
+                      if (creatingChatId) return;
+                      setCreatingChatId(u._id);
+                      try {
+                        await createChat(u._id);
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setCreatingChatId(null);
+                        setShowUsers(false);
+                      }
+                    }}
+                    className={cn(
+                      "p-3 rounded-xl cursor-pointer hover:bg-white/5 border border-transparent hover:border-white/5 transition-all flex items-center gap-3",
+                      creatingChatId === u._id ? "opacity-50 pointer-events-none" : ""
+                    )}
+                  >
+                    <div className="relative flex-shrink-0">
+                      {creatingChatId === u._id ? (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center border-2 border-zinc-700 border-t-zinc-300 animate-spin"></div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-bold">
+                          {u.username?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      {onlineUsers.includes(u._id) && creatingChatId !== u._id && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-zinc-900 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                      )}
+                    </div>
+                    <span className="font-medium text-zinc-200">{u.username}</span>
+                  </div>
+                ))
+              )}
             </motion.div>
           ) : (
             <motion.div 
@@ -127,95 +155,111 @@ export default function Sidebar({
               exit={{ opacity: 0, x: 20 }}
               className="flex flex-col gap-2"
             >
-              {chats.map((chat) => {
-                const otherUser = chat.users.find((u) => u._id !== user._id);
-                const isSelected = selectedChat?._id === chat._id;
-                const isOnline = onlineUsers.includes(otherUser?._id);
-                const unreadCount = unreadMessages[String(chat._id)];
-
-                return (
-                  <div
-                    key={chat._id}
-                    onClick={() => {
-                      setSelectedChat(chat);
-                      markChatAsRead(chat._id);
-                    }}
-                    className={cn(
-                      "p-3 rounded-2xl cursor-pointer transition-all duration-300 border flex items-center gap-3",
-                      isSelected
-                        ? "bg-blue-600/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                        : "bg-transparent border-transparent hover:bg-white/5 hover:border-white/5"
-                    )}
-                  >
-                    {/* Avatar */}
-                    <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-lg font-bold shadow-inner border border-white/5">
-                        {otherUser?.name?.charAt(0).toUpperCase()}
-                      </div>
-                      {isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-zinc-900 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
-                      )}
-                    </div>
-
-                    {/* Content (only visible if sidebar open or mobile) */}
+              {isLoadingChats ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={`chat-skeleton-${i}`} className="p-3 rounded-2xl border border-transparent flex items-center gap-3 animate-pulse">
+                    <div className="w-12 h-12 rounded-full bg-white/10 flex-shrink-0"></div>
                     {(sidebarOpen || isMobile) && (
-                      <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-semibold text-zinc-100 truncate pr-2">
-                            {otherUser?.name}
-                          </p>
-                          {unreadCount && (
-                            <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg shadow-blue-500/30">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        {(() => {
-                          const count = unreadCount;
-                          let previewText = null;
-                          let isUnread = false;
-
-                          // Format preview based on message type
-                          const getPreview = (msg) => {
-                            if (!msg) return null;
-                            if (msg.deleted) return "🚫 This message was deleted";
-                            switch (msg.type) {
-                              case "gif": return "🎞 GIF";
-                              case "image": return "🖼 Image";
-                              case "video": return "🎬 Video";
-                              case "audio": return "🎤 Voice Message";
-                              default: return msg.content;
-                            }
-                          };
-
-                          if (count === "4+") {
-                            previewText = "4+ unread messages";
-                            isUnread = true;
-                          } else if (Number(count) >= 2) {
-                            previewText = `${count} unread messages`;
-                            isUnread = true;
-                          } else if (Number(count) === 1) {
-                            previewText = chat.latestMessage ? getPreview(chat.latestMessage) : "1 unread message";
-                            isUnread = true;
-                          } else if (chat.latestMessage) {
-                            previewText = getPreview(chat.latestMessage);
-                            isUnread = false;
-                          }
-
-                          return previewText ? (
-                            <p className={cn(
-                              "text-xs truncate",
-                              isUnread ? "text-blue-300 font-medium" : "text-zinc-500"
-                            )}>
-                              {previewText}
-                            </p>
-                          ) : null;
-                        })()}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
+                        <div className="h-4 bg-white/10 rounded w-1/3"></div>
+                        <div className="h-3 bg-white/10 rounded w-2/3"></div>
                       </div>
                     )}
                   </div>
-                );
-              })}
+                ))
+              ) : chats.length === 0 ? (
+                <div className="text-center text-zinc-500 mt-10 text-sm">No chats yet</div>
+              ) : (
+                chats.map((chat) => {
+                  const otherUser = chat.users.find((u) => u._id !== user._id);
+                  const isSelected = selectedChat?._id === chat._id;
+                  const isOnline = onlineUsers.includes(otherUser?._id);
+                  const unreadCount = unreadMessages[String(chat._id)];
+
+                  return (
+                    <div
+                      key={chat._id}
+                      onClick={() => {
+                        setSelectedChat(chat);
+                        markChatAsRead(chat._id);
+                      }}
+                      className={cn(
+                        "p-3 rounded-2xl cursor-pointer transition-all duration-300 border flex items-center gap-3",
+                        isSelected
+                          ? "bg-blue-600/10 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+                          : "bg-transparent border-transparent hover:bg-white/5 hover:border-white/5"
+                      )}
+                    >
+                      {/* Avatar */}
+                      <div className="relative flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-lg font-bold shadow-inner border border-white/5">
+                          {otherUser?.username?.charAt(0).toUpperCase()}
+                        </div>
+                        {isOnline && (
+                          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-zinc-900 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                        )}
+                      </div>
+
+                      {/* Content (only visible if sidebar open or mobile) */}
+                      {(sidebarOpen || isMobile) && (
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-semibold text-zinc-100 truncate pr-2">
+                              {otherUser?.username}
+                            </p>
+                            {unreadCount && (
+                              <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-lg shadow-blue-500/30">
+                                {unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          {(() => {
+                            const count = unreadCount;
+                            let previewText = null;
+                            let isUnread = false;
+
+                            // Format preview based on message type
+                            const getPreview = (msg) => {
+                              if (!msg) return null;
+                              if (msg.deleted) return "🚫 This message was deleted";
+                              switch (msg.type) {
+                                case "gif": return "🎞 GIF";
+                                case "image": return "🖼 Image";
+                                case "video": return "🎬 Video";
+                                case "audio": return "🎤 Voice Message";
+                                default: return msg.content;
+                              }
+                            };
+
+                            if (count === "4+") {
+                              previewText = "4+ unread messages";
+                              isUnread = true;
+                            } else if (Number(count) >= 2) {
+                              previewText = `${count} unread messages`;
+                              isUnread = true;
+                            } else if (Number(count) === 1) {
+                              previewText = chat.latestMessage ? getPreview(chat.latestMessage) : "1 unread message";
+                              isUnread = true;
+                            } else if (chat.latestMessage) {
+                              previewText = getPreview(chat.latestMessage);
+                              isUnread = false;
+                            }
+
+                            return previewText ? (
+                              <p className={cn(
+                                "text-xs truncate",
+                                isUnread ? "text-blue-300 font-medium" : "text-zinc-500"
+                              )}>
+                                {previewText}
+                              </p>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </motion.div>
           )}
         </AnimatePresence>

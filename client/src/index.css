@@ -388,12 +388,15 @@ body {
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  min-height: 100px;
-  max-width: 280px;
+  display: inline-block;
 }
 
 .gif-message-img {
-  width: 100%;
+  max-width: 200px;
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
   border-radius: 16px;
   transition: opacity 0.3s ease;
@@ -563,12 +566,15 @@ body {
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  min-height: 80px;
-  max-width: 320px;
+  display: inline-block;
 }
 
 .media-message-img {
-  width: 100%;
+  max-width: 200px;
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
   border-radius: 16px;
   transition: opacity 0.3s ease;
@@ -878,13 +884,17 @@ body {
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  max-width: 320px;
+  display: inline-block;
   cursor: pointer;
-  background: #000;
+  background: transparent;
 }
 
 .video-card-player {
-  width: 100%;
+  max-width: 200px;
+  max-height: 240px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
   border-radius: 16px;
   transition: opacity 0.3s ease;

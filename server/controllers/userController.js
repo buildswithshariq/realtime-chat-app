@@ -22,6 +22,32 @@ const getUsers = async (req, res) => {
 
 };
 
+const savePushSubscription = async (req, res) => {
+  try {
+    const { subscription, userAgent } = req.body;
+    
+    // Check if it already exists
+    const user = await User.findById(req.user._id);
+    const exists = user.pushSubscriptions.some(sub => sub.endpoint === subscription.endpoint);
+    
+    if (!exists) {
+      user.pushSubscriptions.push({
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        userAgent: userAgent || "Unknown",
+        createdAt: new Date()
+      });
+      await user.save();
+    }
+    
+    res.status(200).json({ message: "Subscription saved successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 module.exports = {
   getUsers,
+  savePushSubscription,
 };

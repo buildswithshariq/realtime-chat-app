@@ -1,5 +1,6 @@
 const Message = require("../models/Message");
 const Chat = require("../models/Chat");
+const { sendPushNotification } = require("../services/pushService");
 
 const sendMessage = async (req, res)=>{
     
@@ -21,6 +22,31 @@ const sendMessage = async (req, res)=>{
         });
 
         message = await message.populate("sender", "name username");
+        message = await message.populate({
+            path: "chat",
+            populate: {
+                path: "users",
+                select: "name username"
+            }
+        });
+
+        // Send push notification
+        const chat = await Chat.findById(chatId).populate("users", "pushSubscriptions");
+        const recipient = chat.users.find(u => u._id.toString() !== req.user._id.toString());
+        
+        if (recipient) {
+            const payloadContent = type === 'text' ? content : `[${type}]`;
+            const payload = {
+                type: "message",
+                chatId: chatId,
+                senderName: message.sender.name,
+                message: payloadContent.slice(0, 120),
+                avatar: "" // Add avatar if available later
+            };
+            
+            // Background push without blocking the API response
+            sendPushNotification({ recipient, payload });
+        }
 
         res.status(201).json(message);
 
@@ -34,16 +60,25 @@ const sendMessage = async (req, res)=>{
 
 };
 
-const getMessages= async (req,res)=>{
-    try{
+const getMessages = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
         const messages = await Message.find({
             chat: req.params.chatId,
         })
-        .populate("sender","name username")
-        .sort({createdAt: 1});
+        .populate("sender", "name username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+        // Reverse to return them in chronological order
+        messages.reverse();
 
         res.status(200).json(messages);
-    } catch(error){
+    } catch (error) {
         console.log(error);
 
         res.status(500).json({

@@ -18,7 +18,7 @@ function Navbar() {
           Yappo
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400 truncate">
-          {user?.name}
+          @{user?.username}
         </p>
       </div>
 

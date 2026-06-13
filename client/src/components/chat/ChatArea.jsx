@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import MessageBubble from "./MessageBubble";
 import NewMessageOrb from "./NewMessageOrb";
 
@@ -11,36 +12,56 @@ export default function ChatArea({
   setHasNewMessages,
   updateStatus,
   fetchMessages,
+  fetchMoreMessages,
+  hasMore,
+  isLoadingMore,
   justSentRef,
   justOpenedChatRef,
   isAtBottomRef,
   wasAtBottomRef,
   onUnsend,
-  onImageClick
+  onImageClick,
+  isMobile
 }) {
   const chatContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const prevMessageCountRef = useRef(0);
+  const scrollHeightRef = useRef(0);
+  const isFetchingRef = useRef(false);
 
-  // Smart auto-scroll logic — only scroll when new messages arrive
   useEffect(() => {
-    const isNewMessage = messages.length > prevMessageCountRef.current;
-    prevMessageCountRef.current = messages.length;
+    isFetchingRef.current = isLoadingMore;
+  }, [isLoadingMore]);
 
-    if (justOpenedChatRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-      justOpenedChatRef.current = false;
-      return;
+  // Smart auto-scroll and scroll preservation logic
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+
+    const isNewMessage = messages.length > prevMessageCountRef.current;
+    const addedCount = messages.length - prevMessageCountRef.current;
+    
+    if (isNewMessage) {
+      if (isFetchingRef.current || (addedCount > 1 && !justOpenedChatRef.current)) {
+        // We loaded older messages -> Restore scroll position
+        const newScrollHeight = el.scrollHeight;
+        el.scrollTop = newScrollHeight - scrollHeightRef.current;
+      } else {
+        // Normal new message or just opened chat
+        if (justOpenedChatRef.current) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+          justOpenedChatRef.current = false;
+        } else if (justSentRef.current) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          justSentRef.current = false;
+        } else if (isAtBottomRef.current) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+      }
     }
-    if (justSentRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      justSentRef.current = false;
-      return;
-    }
-    // Only auto-scroll for actual new messages, not status refetches
-    if (isNewMessage && isAtBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+
+    prevMessageCountRef.current = messages.length;
+    scrollHeightRef.current = el.scrollHeight;
   }, [messages, justOpenedChatRef, justSentRef, isAtBottomRef]);
 
   const handleScroll = (e) => {
@@ -53,10 +74,15 @@ export default function ChatArea({
       setHasNewMessages(false);
       if (selectedChat) {
         updateStatus(selectedChat._id, "seen");
-        fetchMessages(selectedChat._id);
       }
     }
     wasAtBottomRef.current = atBottom;
+
+    // Detect scrolling to the top to load older messages
+    if (el.scrollTop === 0 && hasMore && !isLoadingMore) {
+      scrollHeightRef.current = el.scrollHeight;
+      fetchMoreMessages();
+    }
   };
 
   const scrollToBottom = () => {
@@ -64,24 +90,84 @@ export default function ChatArea({
     setHasNewMessages(false);
   };
 
+  const formatDateDivider = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const diffTime = today - msgDay;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return "Today";
+    } else if (diffDays === 1) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }
+  };
+
   return (
     <div className="flex-1 relative overflow-hidden min-h-0">
       <div 
-        className="h-full overflow-y-auto scrollbar-hide p-4 md:p-8"
+        className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide p-4 md:p-8"
         ref={chatContainerRef}
         onScroll={handleScroll}
       >
-        <div className="max-w-4xl mx-auto flex flex-col min-h-full">
+        <motion.div 
+          className="max-w-4xl mx-auto flex flex-col min-h-full"
+          drag={isMobile ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={{ left: 0.2, right: 0 }}
+          dragDirectionLock
+        >
           <div className="flex-1 shrink-0 min-h-0"></div>
-          {messages.map((msg, index) => (
-            <MessageBubble 
-              key={msg._id || index} 
-              msg={msg} 
-              isOwnMessage={msg.sender?._id === user._id}
-              onUnsend={onUnsend}
-              onImageClick={onImageClick}
-            />
-          ))}
+          
+          {isLoadingMore && (
+            <div className="flex justify-center py-4">
+              <span className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+            </div>
+          )}
+
+          {messages.map((msg, index) => {
+            const currentMsgDate = new Date(msg.createdAt);
+            const prevMsgDate = index > 0 ? new Date(messages[index - 1].createdAt) : null;
+            
+            let showDivider = false;
+            if (!prevMsgDate) {
+              showDivider = true;
+            } else {
+              showDivider = 
+                currentMsgDate.getDate() !== prevMsgDate.getDate() ||
+                currentMsgDate.getMonth() !== prevMsgDate.getMonth() ||
+                currentMsgDate.getFullYear() !== prevMsgDate.getFullYear();
+            }
+
+            return (
+              <React.Fragment key={msg._id || index}>
+                {showDivider && (
+                  <div className="flex justify-center my-4 pb-2">
+                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-800/30 px-3 py-1.5 rounded-full border border-white/5">
+                      {formatDateDivider(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
+                <MessageBubble 
+                  msg={msg} 
+                  isOwnMessage={msg.sender?._id === user._id}
+                  isLatest={index === messages.length - 1}
+                  onUnsend={onUnsend}
+                  onImageClick={onImageClick}
+                  isMobile={isMobile}
+                />
+              </React.Fragment>
+            );
+          })}
 
           {isTyping && (
             <div className="flex justify-start mb-4">
@@ -94,7 +180,7 @@ export default function ChatArea({
           )}
           
           <div ref={messagesEndRef} className="h-4"></div>
-        </div>
+        </motion.div>
       </div>
 
       <NewMessageOrb 
